@@ -1,0 +1,19 @@
+app:
+  project: lazybones-crossing-go
+  name: lazybones-crossing-go
+  profiles:
+    include:
+      - actuator
+      - locale
+      - logging
+      - jwt
+      - mongo
+server:
+  port: 8081
+
+logging:
+  level: info
+
+mongo:
+  host: 127.0.0.1
+  port: 27017
