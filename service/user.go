@@ -7,7 +7,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"hidevops.io/hiboot-data/starter/mongo"
 	"hidevops.io/hiboot/pkg/app"
-	"hidevops.io/hiboot/pkg/utils/idgen"
 	"lazybones-crossing-go/entity"
 	"log"
 )
@@ -38,9 +37,6 @@ func newUserService(client *mongo.Client) UserService {
 func (s *userServiceImpl) AddUser(user *entity.User) (err error) {
 	if user == nil {
 		return errors.New("user is not allowed nil")
-	}
-	if user.Id == "" {
-		user.Id, _ = idgen.NextString()
 	}
 	db := s.client.Database("lazybones").Collection("users")
 	_, err = db.InsertOne(context.Background(), user)

@@ -7,7 +7,7 @@ import (
 
 type User struct {
 	model.RequestBody
-	Id       string    `json:"id" bson:"id,omitempty"`
+	Id       string    `json:"_id" bson:"_id,omitempty"`
 	UserName string    `json:"userName" bson:"userName,omitempty"` //昵称
 	Password string    `json:"password" bson:"password,omitempty"`
 	Email    string    `json:"email" bson:"email,omitempty"`
