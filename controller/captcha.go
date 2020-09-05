@@ -8,6 +8,7 @@ import (
 	"lazybones-crossing-go/entity"
 	"lazybones-crossing-go/service"
 	"lazybones-crossing-go/utils"
+	"log"
 	"time"
 )
 
@@ -37,7 +38,7 @@ func (c *captchaController) Post(request *entity.Captcha) (model.Response, error
 	}
 
 	code := utils.GetRandomString(5)
-	c.captchaService.AddCaptcha(&entity.Captcha{
+	err := c.captchaService.AddCaptcha(&entity.Captcha{
 		RequestBody: model.RequestBody{},
 		Mobile:      request.Mobile,
 		Email:       request.Email,
@@ -45,6 +46,15 @@ func (c *captchaController) Post(request *entity.Captcha) (model.Response, error
 		Type:        request.Type,
 		Expired:     time.Now().Add(time.Minute * 15).Local(),
 	})
+
+	if err != nil {
+		log.Print(err)
+		return nil, errors.BadRequestf("发送验证码失败")
+	}
+
+	if request.Email != "" {
+		utils.SendMail([]string{request.Email}, "[集合吧懒虫们]验证码", "你正在进行登录操作，你的验证码为:"+code)
+	}
 
 	response.SetData(code)
 	return response, nil
