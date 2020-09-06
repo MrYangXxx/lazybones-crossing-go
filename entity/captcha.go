@@ -8,7 +8,7 @@ import (
 //验证码
 type Captcha struct {
 	model.RequestBody
-	Id      string    `json:"_id" bson:"_id,omitempty"`
+	Id      string    `json:"id" bson:"_id,omitempty"`
 	Mobile  string    `json:"mobile"`  //发送的手机号
 	Email   string    `json:"email"`   //发送的邮箱
 	Code    string    `json:"code"`    //验证码
