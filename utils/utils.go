@@ -3,7 +3,9 @@ package utils
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/gomail.v2"
+	"log"
 	rd "math/rand"
 	"time"
 )
@@ -70,6 +72,16 @@ func StringsContains(array []string, val string) (index int) {
 		}
 	}
 	return
+}
+
+//字符串转换为mongoDB ObjectID
+func ToMongoDBId(id string) interface{} {
+	fromHex, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		log.Print("id转换失败")
+		return err
+	}
+	return fromHex
 }
 
 //通过邮箱发送信息
