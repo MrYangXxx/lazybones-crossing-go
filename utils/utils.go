@@ -7,6 +7,7 @@ import (
 	"gopkg.in/gomail.v2"
 	"log"
 	rd "math/rand"
+	"regexp"
 	"time"
 )
 
@@ -111,4 +112,18 @@ func SendMail(mailTo []string, subject string, body string) error {
 	//d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
 	err := d.DialAndSend(m)
 	return err
+}
+
+//验证邮箱格式
+func VerifyEmailFormat(email string) bool {
+	pattern := `\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*` //匹配电子邮箱
+	reg := regexp.MustCompile(pattern)
+	return reg.MatchString(email)
+}
+
+//验证手机格式
+func VerifyMobileFormat(mobileNum string) bool {
+	regular := "^((13[0-9])|(14[5,7])|(15[0-3,5-9])|(17[0,3,5-8])|(18[0-9])|166|198|199|(147))\\d{8}$"
+	reg := regexp.MustCompile(regular)
+	return reg.MatchString(mobileNum)
 }
