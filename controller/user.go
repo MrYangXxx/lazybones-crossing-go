@@ -14,24 +14,27 @@ import (
 	"lazybones-crossing-go/utils"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
 // RestController
 type userController struct {
 	at.RestController
-	userService service.UserService
-	token       hibootjwt.Token
+	userService    service.UserService
+	captchaService service.CaptchaService
+	token          hibootjwt.Token
 }
 
 func init() {
 	app.Register(newUserController)
 }
 
-func newUserController(userService service.UserService, token hibootjwt.Token) *userController {
+func newUserController(userService service.UserService, token hibootjwt.Token, captchaService service.CaptchaService) *userController {
 	return &userController{
-		userService: userService,
-		token:       token,
+		userService:    userService,
+		token:          token,
+		captchaService: captchaService,
 	}
 }
 
@@ -43,39 +46,79 @@ func userVerifyEmpty(request *entity.User) error {
 	return nil
 }
 
+//自定义接收参数
+type RegistryRequest struct {
+	at.RequestBody
+	Receiver   string `json:"receiver"`
+	Password   string `json:"password"`
+	VerifyCode string `json:"verifyCode"`
+}
+
 // 用户注册，账号可以为手机或邮箱
 func (c *userController) Registry(_ struct {
 	at.PostMapping `value:"/registry"`
-}, request *entity.User) (model.Response, error) {
+}, request *RegistryRequest) (model.Response, error) {
 	response := new(model.BaseResponse)
 
-	if err := userVerifyEmpty(request); err != nil {
+	//必填项判空
+	hasEmpty := request.Receiver == "" || request.Password == "" || request.VerifyCode == ""
+	if hasEmpty {
 		response.SetCode(http.StatusBadRequest)
 		response.SetMessage("必填项不能为空")
 		return response, errors.BadRequestf("必填项不能为空")
 	}
 
-	//昵称没有设置默认为电话或邮箱
-	if request.UserName == "" {
-		if request.Mobile == "" {
-			request.UserName = request.Email
-		}
-		request.UserName = request.Mobile
+	//判断是否是邮箱
+	isEmail := utils.VerifyEmailFormat(request.Receiver)
+	isMobile := utils.VerifyMobileFormat(request.Receiver)
+
+	if !isEmail && !isMobile {
+		return response, errors.BadRequestf("手机或邮箱格式错误")
 	}
 
+	//初始化user，先用于查询是否存在，后用于保存
+	user := &entity.User{}
+	if isEmail {
+		user.Email = request.Receiver
+	} else {
+		user.Mobile = request.Receiver
+	}
+
+	//判断用户是否存在
 	var page = 1
 	var pageSize = 1
-	users, _, err := c.userService.FindByFilter(&entity.User{Mobile: request.Mobile, Email: request.Email}, int64(page), int64(pageSize))
+	users, _, err := c.userService.FindByFilter(user, int64(page), int64(pageSize))
 	if users != nil && len(*users) > 0 {
 		return response, errors.BadRequestf("该账号已存在")
 	}
 
+	//判断验证码有效性
+	captcha := &entity.Captcha{
+		Mobile: user.Mobile,
+		Email:  user.Email,
+		Code:   request.VerifyCode,
+		Type:   "registry",
+	}
+	err = c.captchaService.FindCaptcha(captcha)
+	// EqualFold方法可忽略大小写，相等返回true
+	if err != nil || !strings.EqualFold(captcha.Code, request.VerifyCode) {
+		log.Print("验证码验证失败")
+		return response, errors.BadRequestf("验证码验证失败")
+	}
+	if time.Now().After(captcha.Expired) {
+		log.Print("验证码过期")
+		return response, errors.BadRequestf("验证码已过期")
+	}
+
 	// MD5 密码盐值
 	salt := utils.GetRandomNumber(10)
-	request.Password = utils.MD5(salt, request.Password)
-	request.Salt = salt
+	//设置要保存的user信息
+	user.Password = utils.MD5(salt, request.Password)
+	user.Salt = salt
+	//昵称没有设置默认为电话或邮箱
+	user.UserName = request.Receiver
 
-	err = c.userService.AddUser(request)
+	err = c.userService.AddUser(user)
 	response.SetData(request)
 	return response, err
 }
@@ -106,16 +149,31 @@ func (c *userController) PutById(id string, request *entity.User) (response mode
 	return
 }
 
+//自定义接收参数
+type LoginRequest struct {
+	at.RequestBody
+	Receiver string `json:"receiver"`
+	Password string `json:"password"`
+}
+
 func (c *userController) Login(_ struct {
 	at.PostMapping `value:"/login"`
-}, request *entity.User) (response model.Response, err error) {
+}, request *LoginRequest) (response model.Response, err error) {
 	response = new(model.BaseResponse)
+
+	filter := &entity.User{}
+	//判断是否是邮箱
+	isEmail := utils.VerifyEmailFormat(request.Receiver)
+
+	if isEmail {
+		filter.Email = request.Receiver
+	} else {
+		filter.Mobile = request.Receiver
+	}
+
 	var page = 1
 	var pageSize = 1
-	users, _, err := c.userService.FindByFilter(&entity.User{
-		Mobile: request.Mobile,
-		Email:  request.Email,
-	}, int64(page), int64(pageSize))
+	users, _, err := c.userService.FindByFilter(filter, int64(page), int64(pageSize))
 	if users == nil || len(*users) < 1 {
 		return response, errors.BadRequestf("用户不存在")
 	}
@@ -126,9 +184,9 @@ func (c *userController) Login(_ struct {
 	}
 
 	jwtToken, _ := c.token.Generate(hibootjwt.Map{
-		"userName": request.UserName,
-		"mobile":   request.Mobile,
-		"email":    request.Email,
+		"userName": (*users)[0].UserName,
+		"mobile":   (*users)[0].Mobile,
+		"email":    (*users)[0].Email,
 	}, 10, time.Hour)
 
 	data := make(map[string]interface{})
