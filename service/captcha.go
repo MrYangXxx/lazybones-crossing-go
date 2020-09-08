@@ -13,7 +13,7 @@ import (
 
 type CaptchaService interface {
 	AddCaptcha(captcha *entity.Captcha) error
-	FindCaptchaByMobileOrEmail(captcha *entity.Captcha) error
+	FindCaptcha(captcha *entity.Captcha) error
 }
 
 type captchaServiceImpl struct {
@@ -39,7 +39,8 @@ func (c *captchaServiceImpl) AddCaptcha(captcha *entity.Captcha) (err error) {
 	return
 }
 
-func (c *captchaServiceImpl) FindCaptchaByMobileOrEmail(captcha *entity.Captcha) error {
+//根据email或mobile，并且等于type 查询
+func (c *captchaServiceImpl) FindCaptcha(captcha *entity.Captcha) error {
 	if captcha == nil {
 		return errors.New("captcha is not allowed nil")
 	}
