@@ -56,17 +56,22 @@ func (c *recordController) Post(request *entity.Record) (model.Response, error) 
 //查询某用户发布记录
 func (c *recordController) FindByUserId(_ struct {
 	at.PostMapping `value:"/user"`
-}, request *entity.Record, page *int, pageSize *int) (model.Response, error) {
+}, request *struct {
+	at.RequestBody
+	UserId   string
+	Page     int
+	PageSize int
+}) (model.Response, error) {
 	response := new(model.BaseResponse)
 
-	if *page <= 0 {
-		*page = 1
+	if request.Page <= 0 {
+		request.Page = 1
 	}
-	if *pageSize <= 0 {
-		*pageSize = 1
+	if request.PageSize <= 0 {
+		request.PageSize = 10
 	}
 
-	records, pagination, err := c.recordService.FindByFilter(request, int64(*page), int64(*pageSize))
+	records, pagination, err := c.recordService.FindByFilter(&entity.Record{UserId: request.UserId}, int64(request.Page), int64(request.PageSize))
 	if err != nil {
 		log.Print(err)
 		return nil, errors.BadRequestf("查询用户发布记录失败")
@@ -80,16 +85,22 @@ func (c *recordController) FindByUserId(_ struct {
 }
 
 //首页显示的发布记录,暂根据发布时间排序查询
-func (c *recordController) Get(page *int, pageSize *int) (model.Response, error) {
+func (c *recordController) Find(_ struct {
+	at.PostMapping `value:"/find"`
+}, request *struct {
+	at.RequestBody
+	Page     int
+	PageSize int
+}) (model.Response, error) {
 	response := new(model.BaseResponse)
 
-	if *page <= 0 {
-		*page = 1
+	if request.Page <= 0 {
+		request.Page = 1
 	}
-	if *pageSize <= 0 {
-		*pageSize = 1
+	if request.PageSize <= 0 {
+		request.PageSize = 10
 	}
-	records, pagination, err := c.recordService.Find(int64(*page), int64(*pageSize))
+	records, pagination, err := c.recordService.Find(int64(request.Page), int64(request.PageSize))
 	if err != nil {
 		log.Print(err)
 		return nil, errors.BadRequestf("查询发布记录失败")
