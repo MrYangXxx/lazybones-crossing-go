@@ -7,6 +7,7 @@ import (
 	"hidevops.io/hiboot/pkg/model"
 	"lazybones-crossing-go/entity"
 	"lazybones-crossing-go/service"
+	"lazybones-crossing-go/utils"
 	"log"
 	"time"
 )
@@ -37,7 +38,7 @@ func (c *recordController) Post(request *entity.Record) (model.Response, error) 
 	}
 
 	record := &entity.Record{
-		UserId:      request.UserId,
+		UserId:      utils.ToMongoDBId(request.UserId.(string)),
 		BeginTime:   request.BeginTime,
 		EndTime:     request.EndTime,
 		PublishTime: time.Now(),
@@ -71,7 +72,7 @@ func (c *recordController) FindByUserId(_ struct {
 		request.PageSize = 10
 	}
 
-	records, pagination, err := c.recordService.FindByFilter(&entity.Record{UserId: request.UserId}, int64(request.Page), int64(request.PageSize))
+	records, pagination, err := c.recordService.FindByFilter(&entity.Record{UserId: utils.ToMongoDBId(request.UserId)}, int64(request.Page), int64(request.PageSize))
 	if err != nil {
 		log.Print(err)
 		return nil, errors.BadRequestf("查询用户发布记录失败")
