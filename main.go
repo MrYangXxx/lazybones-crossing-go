@@ -20,6 +20,7 @@ import (
 	_ "hidevops.io/hiboot/pkg/starter/locale"
 	_ "hidevops.io/hiboot/pkg/starter/logging"
 	_ "lazybones-crossing-go/controller"
+	_ "lazybones-crossing-go/middleware"
 )
 
 func main() {

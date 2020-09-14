@@ -8,6 +8,7 @@ import (
 	"hidevops.io/hiboot-data/starter/mongo"
 	"hidevops.io/hiboot/pkg/app"
 	"lazybones-crossing-go/entity"
+	"lazybones-crossing-go/utils"
 	"log"
 )
 
@@ -17,6 +18,7 @@ type UserService interface {
 	ModifyUser(*entity.User) (err error)
 	FindByFilter(*entity.User, int64, int64) (users *[]entity.User, pagination *entity.Pagination, err error)
 	IsExisted(*entity.User) (existed bool, err error)
+	FindById(id string) (user *entity.User, err error)
 }
 
 type userServiceImpl struct {
@@ -57,8 +59,9 @@ func (s *userServiceImpl) ModifyUser(user *entity.User) (err error) {
 	}
 	//err = s.client.Save(user).Error()
 	db := s.client.Database("lazybones").Collection("users")
-	filter := bson.D{{"id", user.Id}}
-	_, err = db.UpdateOne(context.Background(), filter, user)
+	filter := bson.D{{"_id", utils.ToMongoDBId(user.Id)}}
+	user.Id = ""
+	_, err = db.UpdateOne(context.Background(), filter, bson.D{{"$set", user}})
 	return
 }
 
@@ -101,4 +104,16 @@ func (s *userServiceImpl) IsExisted(user *entity.User) (existed bool, err error)
 		return true, nil
 	}
 	return false, nil
+}
+
+func (s *userServiceImpl) FindById(id string) (user *entity.User, err error) {
+	if id == "" {
+		return nil, errors.New("id is not allowed nil")
+	}
+
+	user = &entity.User{}
+
+	db := s.client.Database("lazybones").Collection("users")
+	err = db.FindOne(context.Background(), bson.D{{"_id", utils.ToMongoDBId(id)}}).Decode(user)
+	return
 }
