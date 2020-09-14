@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/request"
 	"github.com/juju/errors"
@@ -10,10 +11,12 @@ import (
 	"hidevops.io/hiboot/pkg/model"
 	hibootjwt "hidevops.io/hiboot/pkg/starter/jwt"
 	"lazybones-crossing-go/entity"
+	"lazybones-crossing-go/middleware"
 	"lazybones-crossing-go/service"
 	"lazybones-crossing-go/utils"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -24,17 +27,19 @@ type userController struct {
 	userService    service.UserService
 	captchaService service.CaptchaService
 	token          hibootjwt.Token
+	file           *middleware.File
 }
 
 func init() {
 	app.Register(newUserController)
 }
 
-func newUserController(userService service.UserService, token hibootjwt.Token, captchaService service.CaptchaService) *userController {
+func newUserController(userService service.UserService, token hibootjwt.Token, captchaService service.CaptchaService, file *middleware.File) *userController {
 	return &userController{
 		userService:    userService,
 		token:          token,
 		captchaService: captchaService,
+		file:           file,
 	}
 }
 
@@ -117,6 +122,8 @@ func (c *userController) Registry(_ struct {
 	user.Salt = salt
 	//昵称没有设置默认为电话或邮箱
 	user.UserName = request.Receiver
+	//默认头像
+	user.Avatar = "default.jpg"
 
 	err = c.userService.AddUser(user)
 	response.SetData(request)
@@ -126,7 +133,6 @@ func (c *userController) Registry(_ struct {
 //PUT /user/id/:id
 func (c *userController) PutById(id string, request *entity.User) (response model.Response, err error) {
 	response = new(model.BaseResponse)
-	request.Id = id
 
 	if err := userVerifyEmpty(request); err != nil {
 		response.SetCode(http.StatusBadRequest)
@@ -134,15 +140,25 @@ func (c *userController) PutById(id string, request *entity.User) (response mode
 		return response, errors.BadRequestf("必填项不能为空")
 	}
 
-	users, _, err := c.userService.FindByFilter(&entity.User{Id: id}, 1, 1)
-	if users == nil || len(*users) < 1 {
+	user, err := c.userService.FindById(id)
+	if user == nil {
 		return response, errors.BadRequestf("该账号不存在")
 	}
 	//密码被改了
-	if (*users)[0].Password != request.Password {
-		request.Password = utils.MD5((*users)[0].Salt, request.Password)
+	if user.Password != request.Password {
+		request.Password = utils.MD5(user.Salt, request.Password)
 	}
-	request.Salt = (*users)[0].Salt
+	request.Salt = user.Salt
+
+	//头像被改了，删除旧的头像
+	if user.Avatar != request.Avatar {
+		//存储路径
+		path := c.file.Path
+		err = os.Remove(path + user.Avatar)
+		if err != nil {
+			fmt.Println("删除头像文件出现错误", err)
+		}
+	}
 
 	err = c.userService.ModifyUser(request)
 
