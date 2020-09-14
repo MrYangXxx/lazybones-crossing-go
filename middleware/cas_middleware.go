@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"github.com/dgrijalva/jwt-go"
-	"github.com/dgrijalva/jwt-go/request"
 	"hidevops.io/hiboot/pkg/app"
 	"hidevops.io/hiboot/pkg/app/web/context"
 	"hidevops.io/hiboot/pkg/at"
@@ -38,7 +37,10 @@ func (m *CasBinMiddleware) Auth(at struct {
 	}
 
 	//其他请求验证token和访问权限
-	token, _ := request.ParseFromRequest(ctx.Request(), request.AuthorizationHeaderExtractor, func(token *jwt.Token) (interface{}, error) {
+	//token, _ := request.ParseFromRequest(ctx.Request(), request.AuthorizationHeaderExtractor, func(token *jwt.Token) (interface{}, error) {
+	//	return m.token.VerifyKey(), nil
+	//})
+	token, _ := jwt.Parse(ctx.GetCookie("lazybones_token"), func(*jwt.Token) (interface{}, error) {
 		return m.token.VerifyKey(), nil
 	})
 
