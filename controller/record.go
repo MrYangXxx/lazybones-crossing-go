@@ -219,8 +219,16 @@ func (c *recordController) EGG(_ struct {
 	//查询用户投票记录
 	userRecord, err := c.userRecordService.Find(request.UserId.(string), request.Id)
 	if err != nil || userRecord == nil {
-		log.Print("userRecord 查询错误")
-		return response, errors.BadRequestf("查询错误")
+		userRecord = &entity.UserRecord{
+			UserId:   request.UserId.(string),
+			RecordId: request.Id,
+			Egg:      0,
+			Flower:   0,
+		}
+		err = c.userRecordService.Add(userRecord)
+		if err != nil {
+			return response, errors.BadRequestf("投递鸡蛋失败")
+		}
 	}
 
 	//用户对记录的投蛋上限暂定为10
