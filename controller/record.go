@@ -223,23 +223,23 @@ func (c *recordController) EGG(_ struct {
 		return response, errors.BadRequestf("查询错误")
 	}
 
-	//用户对记录的投花上限暂定为10
-	if userRecord.Flower >= 10 {
+	//用户对记录的投蛋上限暂定为10
+	if userRecord.Egg >= 10 {
 		return response, errors.BadRequestf("您在此记录的投蛋数已达上限")
 	}
 
 	//投送数量未超过时
-	//用户总鲜花数+1
+	//用户总蛋数+1
 	err = c.userService.IncreaseEggCount(request.UserId.(string))
 	if err != nil {
 		return response, errors.BadRequestf("投递鸡蛋失败")
 	}
-	//记录鲜花数+1
+	//记录蛋数+1
 	err = c.recordService.IncreaseEggCount(request.Id)
 	if err != nil {
 		return response, errors.BadRequestf("投递鸡蛋失败")
 	}
-	//用户投送鲜花数+1
+	//用户投送蛋数+1
 	err = c.userRecordService.IncreaseEggCount(request.UserId.(string), request.Id)
 	if err != nil {
 		return response, errors.BadRequestf("投递鸡蛋失败")
