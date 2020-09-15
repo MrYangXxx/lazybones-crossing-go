@@ -9,22 +9,27 @@ import (
 	"lazybones-crossing-go/service"
 	"lazybones-crossing-go/utils"
 	"log"
+	"sync/atomic"
 	"time"
 )
 
 // RestController
 type recordController struct {
 	at.RestController
-	recordService service.RecordService
+	recordService     service.RecordService
+	userRecordService service.UserRecordService
+	userService       service.UserService
 }
 
 func init() {
 	app.Register(newRecordController)
 }
 
-func newRecordController(recordService service.RecordService) *recordController {
+func newRecordController(recordService service.RecordService, userRecordService service.UserRecordService, userService service.UserService) *recordController {
 	return &recordController{
-		recordService: recordService,
+		recordService:     recordService,
+		userRecordService: userRecordService,
+		userService:       userService,
 	}
 }
 
@@ -126,5 +131,122 @@ func (c *recordController) Modify(_ struct {
 	}
 
 	err = c.recordService.ModifyRecord(request)
+	return
+}
+
+var FLOWERLOCK int32 = 1
+
+func (c *recordController) Flower(_ struct {
+	at.PostMapping `value:"/flower"`
+}, request *entity.Record) (response model.Response, err error) {
+	response = new(model.BaseResponse)
+	ok := atomic.CompareAndSwapInt32(&FLOWERLOCK, 1, 0)
+	defer atomic.CompareAndSwapInt32(&FLOWERLOCK, 0, 1)
+	if !ok {
+		return response, errors.BadRequestf("操作过快，请重试")
+	}
+
+	//查询用户投票记录需要
+	hasEmpty := request.Id == "" || request.UserId == ""
+
+	if hasEmpty {
+		return response, errors.BadRequestf("传输数据不完整")
+	}
+
+	//查询用户投票记录
+	userRecord, err := c.userRecordService.Find(request.UserId.(string), request.Id)
+	if err != nil || userRecord == nil {
+		userRecord = &entity.UserRecord{
+			UserId:   request.UserId.(string),
+			RecordId: request.Id,
+			Egg:      0,
+			Flower:   0,
+		}
+		err = c.userRecordService.Add(userRecord)
+		if err != nil {
+			return response, errors.BadRequestf("投递鲜花失败")
+		}
+	}
+
+	//用户对记录的投花上限暂定为10
+	if userRecord.Flower >= 10 {
+		return response, errors.BadRequestf("您在此记录的投花数已达上限")
+	}
+
+	//投送数量未超过时
+	//用户总鲜花数+1
+	err = c.userService.IncreaseFlowerCount(request.UserId.(string))
+	if err != nil {
+		return response, errors.BadRequestf("投递鲜花失败")
+	}
+	//记录鲜花数+1
+	err = c.recordService.IncreaseFlowerCount(request.Id)
+	if err != nil {
+		return response, errors.BadRequestf("投递鲜花失败")
+	}
+	//用户投送鲜花数+1
+	err = c.userRecordService.IncreaseFlowerCount(request.UserId.(string), request.Id)
+	if err != nil {
+		return response, errors.BadRequestf("投递鲜花失败")
+	}
+
+	//返回前端
+	request.Flower += 1
+	response.SetData(request)
+
+	return
+}
+
+var EGGLOCK int32 = 1
+
+func (c *recordController) EGG(_ struct {
+	at.PostMapping `value:"/egg"`
+}, request *entity.Record) (response model.Response, err error) {
+	response = new(model.BaseResponse)
+	ok := atomic.CompareAndSwapInt32(&EGGLOCK, 1, 0)
+	defer atomic.CompareAndSwapInt32(&EGGLOCK, 0, 1)
+	if !ok {
+		return response, errors.BadRequestf("操作过快，请重试")
+	}
+
+	//查询用户投票记录需要
+	hasEmpty := request.Id == "" || request.UserId == ""
+
+	if hasEmpty {
+		return response, errors.BadRequestf("传输数据不完整")
+	}
+
+	//查询用户投票记录
+	userRecord, err := c.userRecordService.Find(request.UserId.(string), request.Id)
+	if err != nil || userRecord == nil {
+		log.Print("userRecord 查询错误")
+		return response, errors.BadRequestf("查询错误")
+	}
+
+	//用户对记录的投花上限暂定为10
+	if userRecord.Flower >= 10 {
+		return response, errors.BadRequestf("您在此记录的投蛋数已达上限")
+	}
+
+	//投送数量未超过时
+	//用户总鲜花数+1
+	err = c.userService.IncreaseEggCount(request.UserId.(string))
+	if err != nil {
+		return response, errors.BadRequestf("投递鸡蛋失败")
+	}
+	//记录鲜花数+1
+	err = c.recordService.IncreaseEggCount(request.Id)
+	if err != nil {
+		return response, errors.BadRequestf("投递鸡蛋失败")
+	}
+	//用户投送鲜花数+1
+	err = c.userRecordService.IncreaseEggCount(request.UserId.(string), request.Id)
+	if err != nil {
+		return response, errors.BadRequestf("投递鸡蛋失败")
+	}
+
+	//返回前端
+	request.Egg += 1
+	response.SetData(request)
 	return
 }
