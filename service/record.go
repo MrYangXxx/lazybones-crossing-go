@@ -17,6 +17,8 @@ type RecordService interface {
 	FindByFilter(request *entity.Record, page int64, pageSize int64) (records *[]entity.Record, pagination *entity.Pagination, err error)
 	Find(page int64, pageSize int64) (records *[]entity.Record, pagination *entity.Pagination, err error)
 	ModifyRecord(request *entity.Record) error
+	IncreaseFlowerCount(recordId string) (err error)
+	IncreaseEggCount(recordId string) (err error)
 }
 
 type recordServiceImpl struct {
@@ -73,7 +75,6 @@ func (r *recordServiceImpl) FindByFilter(request *entity.Record, page int64, pag
 
 func (r *recordServiceImpl) Find(page int64, pageSize int64) (records *[]entity.Record, pagination *entity.Pagination, err error) {
 	records = &[]entity.Record{}
-	returnRecord := entity.Record{}
 
 	db := r.client.Database("lazybones").Collection("records")
 	skip := (page - 1) * pageSize
@@ -93,12 +94,15 @@ func (r *recordServiceImpl) Find(page int64, pageSize int64) (records *[]entity.
 
 	res, err := db.Aggregate(context.Background(), pipeline)
 
-	resultUser := &struct {
-		UserInfo []entity.User
-	}{}
-
 	for res.Next(context.TODO()) {
+		//连表查询记录带出其对应用户，不过只需获取到头像和用户名就行
+		resultUser := &struct {
+			UserInfo []entity.User
+		}{}
+		returnRecord := entity.Record{}
+		//解构出用户信息
 		err := res.Decode(&resultUser)
+		//解构出记录信息
 		err = res.Decode(&returnRecord)
 		if err != nil {
 			log.Print(err)
@@ -130,4 +134,18 @@ func (r *recordServiceImpl) ModifyRecord(request *entity.Record) error {
 	db := r.client.Database("lazybones").Collection("records")
 	_, err := db.UpdateOne(context.Background(), bson.D{{"_id", id}}, bson.D{{"$set", request}})
 	return err
+}
+
+func (r *recordServiceImpl) IncreaseFlowerCount(recordId string) (err error) {
+	db := r.client.Database("lazybones").Collection("records")
+	filter := bson.D{{"_id", utils.ToMongoDBId(recordId)}}
+	_, err = db.UpdateOne(context.Background(), filter, bson.D{{"$inc", bson.D{{"flower", 1}}}})
+	return
+}
+
+func (r *recordServiceImpl) IncreaseEggCount(recordId string) (err error) {
+	db := r.client.Database("lazybones").Collection("records")
+	filter := bson.D{{"_id", utils.ToMongoDBId(recordId)}}
+	_, err = db.UpdateOne(context.Background(), filter, bson.D{{"$inc", bson.D{{"egg", 1}}}})
+	return
 }
