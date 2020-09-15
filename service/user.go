@@ -16,13 +16,14 @@ type UserService interface {
 	AddUser(user *entity.User) (err error)
 	DeleteUser(string) (err error)
 	ModifyUser(*entity.User) (err error)
-	FindByFilter(*entity.User, int64, int64) (users *[]entity.User, pagination *entity.Pagination, err error)
+	FindByFilter(interface{}, int64, int64) (users *[]entity.User, pagination *entity.Pagination, err error)
 	IsExisted(*entity.User) (existed bool, err error)
 	FindById(id string) (user *entity.User, err error)
+	IncreaseFlowerCount(userId string) (err error)
+	IncreaseEggCount(userId string) (err error)
 }
 
 type userServiceImpl struct {
-	// add UserService, it means that the instance of UserServiceImpl can be found by UserService
 	client *mongo.Client
 }
 
@@ -46,7 +47,6 @@ func (s *userServiceImpl) AddUser(user *entity.User) (err error) {
 }
 
 func (s *userServiceImpl) DeleteUser(id string) (err error) {
-	//err = s.client.Where("id = ?", id).Delete(entity.User{}).Error()
 	db := s.client.Database("lazybones").Collection("users")
 	filter := bson.D{{"id", id}}
 	_, err = db.DeleteOne(context.Background(), filter)
@@ -57,7 +57,6 @@ func (s *userServiceImpl) ModifyUser(user *entity.User) (err error) {
 	if user.Id == "" {
 		return errors.New("id must not nil")
 	}
-	//err = s.client.Save(user).Error()
 	db := s.client.Database("lazybones").Collection("users")
 	filter := bson.D{{"_id", utils.ToMongoDBId(user.Id)}}
 	user.Id = ""
@@ -65,9 +64,8 @@ func (s *userServiceImpl) ModifyUser(user *entity.User) (err error) {
 	return
 }
 
-func (s *userServiceImpl) FindByFilter(user *entity.User, page int64, pageSize int64) (users *[]entity.User, pagination *entity.Pagination, err error) {
+func (s *userServiceImpl) FindByFilter(filter interface{}, page int64, pageSize int64) (users *[]entity.User, pagination *entity.Pagination, err error) {
 	users = &[]entity.User{}
-	returnUser := entity.User{}
 
 	db := s.client.Database("lazybones").Collection("users")
 	skip := (page - 1) * pageSize
@@ -76,15 +74,16 @@ func (s *userServiceImpl) FindByFilter(user *entity.User, page int64, pageSize i
 		Skip:  &skip,
 	}
 
-	res, err := db.Find(context.Background(), user, &findOptions)
+	res, err := db.Find(context.Background(), filter, &findOptions)
 	for res.Next(context.TODO()) {
+		returnUser := entity.User{}
 		err := res.Decode(&returnUser)
 		if err != nil {
 			log.Print(err)
 		}
 		*users = append(*users, returnUser)
 	}
-	count, err := db.CountDocuments(context.Background(), user)
+	count, err := db.CountDocuments(context.Background(), filter)
 	pagination = &entity.Pagination{
 		Page:     int(page),
 		PageSize: int(pageSize),
@@ -115,5 +114,19 @@ func (s *userServiceImpl) FindById(id string) (user *entity.User, err error) {
 
 	db := s.client.Database("lazybones").Collection("users")
 	err = db.FindOne(context.Background(), bson.D{{"_id", utils.ToMongoDBId(id)}}).Decode(user)
+	return
+}
+
+func (s *userServiceImpl) IncreaseFlowerCount(userId string) (err error) {
+	db := s.client.Database("lazybones").Collection("users")
+	filter := bson.D{{"_id", userId}}
+	_, err = db.UpdateOne(context.Background(), filter, bson.D{{"$inc", bson.D{{"flower", 1}}}})
+	return
+}
+
+func (s *userServiceImpl) IncreaseEggCount(userId string) (err error) {
+	db := s.client.Database("lazybones").Collection("users")
+	filter := bson.D{{"_id", userId}}
+	_, err = db.UpdateOne(context.Background(), filter, bson.D{{"$inc", bson.D{{"egg", 1}}}})
 	return
 }
