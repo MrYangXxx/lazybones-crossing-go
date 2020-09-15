@@ -82,17 +82,20 @@ func (c *userController) Registry(_ struct {
 	}
 
 	//初始化user，先用于查询是否存在，后用于保存
+	filter := make(map[string]string)
 	user := &entity.User{}
 	if isEmail {
+		filter["email"] = request.Receiver
 		user.Email = request.Receiver
 	} else {
+		filter["mobile"] = request.Receiver
 		user.Mobile = request.Receiver
 	}
 
 	//判断用户是否存在
 	var page = 1
 	var pageSize = 1
-	users, _, err := c.userService.FindByFilter(user, int64(page), int64(pageSize))
+	users, _, err := c.userService.FindByFilter(filter, int64(page), int64(pageSize))
 	if users != nil && len(*users) > 0 {
 		return response, errors.BadRequestf("该账号已存在")
 	}
@@ -177,14 +180,14 @@ func (c *userController) Login(_ struct {
 }, request *LoginRequest) (response model.Response, err error) {
 	response = new(model.BaseResponse)
 
-	filter := &entity.User{}
+	filter := make(map[string]interface{})
 	//判断是否是邮箱
 	isEmail := utils.VerifyEmailFormat(request.Receiver)
 
 	if isEmail {
-		filter.Email = request.Receiver
+		filter["email"] = request.Receiver
 	} else {
-		filter.Mobile = request.Receiver
+		filter["mobile"] = request.Receiver
 	}
 
 	var page = 1
@@ -225,10 +228,14 @@ func (c *userController) Info(_ struct {
 
 	//获取用户信息
 	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		users, _, err := c.userService.FindByFilter(&entity.User{
-			Mobile: claims["mobile"].(string),
-			Email:  claims["email"].(string),
-		}, 1, 1)
+		filter := make(map[string]interface{})
+		if claims["mobile"] != "" {
+			filter["mobile"] = claims["mobile"]
+		}
+		if claims["email"] != "" {
+			filter["email"] = claims["email"]
+		}
+		users, _, err := c.userService.FindByFilter(filter, 1, 1)
 		if err != nil {
 			log.Print(err)
 		}
