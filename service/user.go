@@ -119,14 +119,14 @@ func (s *userServiceImpl) FindById(id string) (user *entity.User, err error) {
 
 func (s *userServiceImpl) IncreaseFlowerCount(userId string) (err error) {
 	db := s.client.Database("lazybones").Collection("users")
-	filter := bson.D{{"_id", userId}}
+	filter := bson.D{{"_id", utils.ToMongoDBId(userId)}}
 	_, err = db.UpdateOne(context.Background(), filter, bson.D{{"$inc", bson.D{{"flower", 1}}}})
 	return
 }
 
 func (s *userServiceImpl) IncreaseEggCount(userId string) (err error) {
 	db := s.client.Database("lazybones").Collection("users")
-	filter := bson.D{{"_id", userId}}
+	filter := bson.D{{"_id", utils.ToMongoDBId(userId)}}
 	_, err = db.UpdateOne(context.Background(), filter, bson.D{{"$inc", bson.D{{"egg", 1}}}})
 	return
 }
