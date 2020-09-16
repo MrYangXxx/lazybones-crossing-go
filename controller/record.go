@@ -137,11 +137,19 @@ func (c *recordController) Modify(_ struct {
 	return
 }
 
+//投送鲜花鸡蛋自定义接收参数
+type FlowerAndEggRequest struct {
+	at.RequestBody
+	RecordId string `json:"recordId"` //记录id
+	UserId   string `json:"userId"`   //被送人id
+	OwnerId  string `json:"ownerId"`  //赠送人(自己)id
+}
+
 var FLOWERLOCK int32 = 1
 
 func (c *recordController) Flower(_ struct {
 	at.PostMapping `value:"/flower"`
-}, request *entity.Record) (response model.Response, err error) {
+}, request *FlowerAndEggRequest) (response model.Response, err error) {
 	response = new(model.BaseResponse)
 	ok := atomic.CompareAndSwapInt32(&FLOWERLOCK, 1, 0)
 	defer atomic.CompareAndSwapInt32(&FLOWERLOCK, 0, 1)
@@ -150,18 +158,18 @@ func (c *recordController) Flower(_ struct {
 	}
 
 	//查询用户投票记录需要
-	hasEmpty := request.Id == "" || request.UserId == ""
+	hasEmpty := request.OwnerId == "" || request.UserId == "" || request.RecordId == ""
 
 	if hasEmpty {
 		return response, errors.BadRequestf("传输数据不完整")
 	}
 
-	//查询用户投票记录
-	userRecord, err := c.userRecordService.Find(request.UserId.(string), request.Id)
+	//查询用户（本人）投票记录
+	userRecord, err := c.userRecordService.Find(request.OwnerId, request.RecordId)
 	if err != nil || userRecord == nil {
 		userRecord = &entity.UserRecord{
-			UserId:   request.UserId.(string),
-			RecordId: request.Id,
+			UserId:   request.UserId,
+			RecordId: request.OwnerId,
 			Egg:      0,
 			Flower:   0,
 		}
@@ -177,25 +185,21 @@ func (c *recordController) Flower(_ struct {
 	}
 
 	//投送数量未超过时
-	//用户总鲜花数+1
-	err = c.userService.IncreaseFlowerCount(request.UserId.(string))
+	//用户(被赠送人)总鲜花数+1
+	err = c.userService.IncreaseFlowerCount(request.UserId)
 	if err != nil {
 		return response, errors.BadRequestf("投递鲜花失败")
 	}
 	//记录鲜花数+1
-	err = c.recordService.IncreaseFlowerCount(request.Id)
+	err = c.recordService.IncreaseFlowerCount(request.RecordId)
 	if err != nil {
 		return response, errors.BadRequestf("投递鲜花失败")
 	}
-	//用户投送鲜花数+1
-	err = c.userRecordService.IncreaseFlowerCount(request.UserId.(string), request.Id)
+	//用户(本人)投送鲜花数+1
+	err = c.userRecordService.IncreaseFlowerCount(request.OwnerId, request.RecordId)
 	if err != nil {
 		return response, errors.BadRequestf("投递鲜花失败")
 	}
-
-	//返回前端
-	request.Flower += 1
-	response.SetData(request)
 
 	return
 }
@@ -204,7 +208,7 @@ var EGGLOCK int32 = 1
 
 func (c *recordController) EGG(_ struct {
 	at.PostMapping `value:"/egg"`
-}, request *entity.Record) (response model.Response, err error) {
+}, request *FlowerAndEggRequest) (response model.Response, err error) {
 	response = new(model.BaseResponse)
 	ok := atomic.CompareAndSwapInt32(&EGGLOCK, 1, 0)
 	defer atomic.CompareAndSwapInt32(&EGGLOCK, 0, 1)
@@ -213,18 +217,18 @@ func (c *recordController) EGG(_ struct {
 	}
 
 	//查询用户投票记录需要
-	hasEmpty := request.Id == "" || request.UserId == ""
+	hasEmpty := request.OwnerId == "" || request.UserId == "" || request.RecordId == ""
 
 	if hasEmpty {
 		return response, errors.BadRequestf("传输数据不完整")
 	}
 
-	//查询用户投票记录
-	userRecord, err := c.userRecordService.Find(request.UserId.(string), request.Id)
+	//查询用户(本人)投票记录
+	userRecord, err := c.userRecordService.Find(request.OwnerId, request.RecordId)
 	if err != nil || userRecord == nil {
 		userRecord = &entity.UserRecord{
-			UserId:   request.UserId.(string),
-			RecordId: request.Id,
+			UserId:   request.OwnerId,
+			RecordId: request.RecordId,
 			Egg:      0,
 			Flower:   0,
 		}
@@ -240,24 +244,21 @@ func (c *recordController) EGG(_ struct {
 	}
 
 	//投送数量未超过时
-	//用户总蛋数+1
-	err = c.userService.IncreaseEggCount(request.UserId.(string))
+	//用户（被赠送人）总蛋数+1
+	err = c.userService.IncreaseEggCount(request.UserId)
 	if err != nil {
 		return response, errors.BadRequestf("投递鸡蛋失败")
 	}
 	//记录蛋数+1
-	err = c.recordService.IncreaseEggCount(request.Id)
+	err = c.recordService.IncreaseEggCount(request.RecordId)
 	if err != nil {
 		return response, errors.BadRequestf("投递鸡蛋失败")
 	}
-	//用户投送蛋数+1
-	err = c.userRecordService.IncreaseEggCount(request.UserId.(string), request.Id)
+	//用户（本人）投送蛋数+1
+	err = c.userRecordService.IncreaseEggCount(request.OwnerId, request.RecordId)
 	if err != nil {
 		return response, errors.BadRequestf("投递鸡蛋失败")
 	}
 
-	//返回前端
-	request.Egg += 1
-	response.SetData(request)
 	return
 }
