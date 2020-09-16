@@ -14,13 +14,14 @@ import (
 
 type UserService interface {
 	AddUser(user *entity.User) (err error)
-	DeleteUser(string) (err error)
+	DeleteUser(id string) (err error)
 	ModifyUser(*entity.User) (err error)
-	FindByFilter(interface{}, int64, int64) (users *[]entity.User, pagination *entity.Pagination, err error)
+	FindByFilter(filter interface{}, page int64, pageSize int64) (users *[]entity.User, pagination *entity.Pagination, err error)
 	IsExisted(*entity.User) (existed bool, err error)
 	FindById(id string) (user *entity.User, err error)
 	IncreaseFlowerCount(userId string) (err error)
 	IncreaseEggCount(userId string) (err error)
+	FindBySort(sort string, page int64, pageSize int64) (users *[]entity.User, pagination *entity.Pagination, err error)
 }
 
 type userServiceImpl struct {
@@ -128,5 +129,38 @@ func (s *userServiceImpl) IncreaseEggCount(userId string) (err error) {
 	db := s.client.Database("lazybones").Collection("users")
 	filter := bson.D{{"_id", utils.ToMongoDBId(userId)}}
 	_, err = db.UpdateOne(context.Background(), filter, bson.D{{"$inc", bson.D{{"egg", 1}}}})
+	return
+}
+
+func (s *userServiceImpl) FindBySort(sort string, page int64, pageSize int64) (users *[]entity.User, pagination *entity.Pagination, err error) {
+	users = &[]entity.User{}
+	if sort == "" {
+		sort = "flower"
+	}
+
+	db := s.client.Database("lazybones").Collection("users")
+	skip := (page - 1) * pageSize
+	findOptions := options.FindOptions{
+		Limit: &pageSize,
+		Skip:  &skip,
+		Sort:  bson.D{{sort, -1}}, //1升序， -1降序
+	}
+
+	res, err := db.Find(context.Background(), bson.D{}, &findOptions)
+	for res.Next(context.TODO()) {
+		returnUser := entity.User{}
+		err := res.Decode(&returnUser)
+		if err != nil {
+			log.Print(err)
+		}
+		*users = append(*users, returnUser)
+	}
+	count, err := db.CountDocuments(context.Background(), bson.D{})
+	pagination = &entity.Pagination{
+		Page:     int(page),
+		PageSize: int(pageSize),
+		Count:    int(count),
+	}
+
 	return
 }
