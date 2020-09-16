@@ -14,7 +14,7 @@ import (
 
 type RecordService interface {
 	AddRecord(request *entity.Record) error
-	FindByFilter(request *entity.Record, page int64, pageSize int64) (records *[]entity.Record, pagination *entity.Pagination, err error)
+	FindByFilter(filter interface{}, page int64, pageSize int64) (records *[]entity.Record, pagination *entity.Pagination, err error)
 	Find(page int64, pageSize int64) (records *[]entity.Record, pagination *entity.Pagination, err error)
 	ModifyRecord(request *entity.Record) error
 	IncreaseFlowerCount(recordId string) (err error)
@@ -44,9 +44,8 @@ func (r *recordServiceImpl) AddRecord(request *entity.Record) error {
 	return err
 }
 
-func (r *recordServiceImpl) FindByFilter(request *entity.Record, page int64, pageSize int64) (records *[]entity.Record, pagination *entity.Pagination, err error) {
+func (r *recordServiceImpl) FindByFilter(filter interface{}, page int64, pageSize int64) (records *[]entity.Record, pagination *entity.Pagination, err error) {
 	records = &[]entity.Record{}
-	returnRecord := entity.Record{}
 
 	db := r.client.Database("lazybones").Collection("records")
 	skip := (page - 1) * pageSize
@@ -55,15 +54,16 @@ func (r *recordServiceImpl) FindByFilter(request *entity.Record, page int64, pag
 		Skip:  &skip,
 	}
 
-	res, err := db.Find(context.Background(), request, &findOptions)
+	res, err := db.Find(context.Background(), filter, &findOptions)
 	for res.Next(context.TODO()) {
+		returnRecord := entity.Record{}
 		err := res.Decode(&returnRecord)
 		if err != nil {
 			log.Print(err)
 		}
 		*records = append(*records, returnRecord)
 	}
-	count, err := db.CountDocuments(context.Background(), request)
+	count, err := db.CountDocuments(context.Background(), filter)
 	pagination = &entity.Pagination{
 		Page:     int(page),
 		PageSize: int(pageSize),

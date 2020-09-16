@@ -77,7 +77,10 @@ func (c *recordController) FindByUserId(_ struct {
 		request.PageSize = 10
 	}
 
-	records, pagination, err := c.recordService.FindByFilter(&entity.Record{UserId: utils.ToMongoDBId(request.UserId)}, int64(request.Page), int64(request.PageSize))
+	filter := make(map[string]interface{})
+	filter["userId"] = utils.ToMongoDBId(request.UserId)
+
+	records, pagination, err := c.recordService.FindByFilter(filter, int64(request.Page), int64(request.PageSize))
 	if err != nil {
 		log.Print(err)
 		return nil, errors.BadRequestf("查询用户发布记录失败")
