@@ -51,7 +51,7 @@ func userVerifyEmpty(request *entity.User) error {
 	return nil
 }
 
-//自定义接收参数
+//注册自定义接收参数
 type RegistryRequest struct {
 	at.RequestBody
 	Receiver   string `json:"receiver"`
@@ -133,7 +133,7 @@ func (c *userController) Registry(_ struct {
 	return response, err
 }
 
-//PUT /user/id/:id
+//PUT /user/id/:id 用户修改
 func (c *userController) PutById(id string, request *entity.User) (response model.Response, err error) {
 	response = new(model.BaseResponse)
 
@@ -168,13 +168,14 @@ func (c *userController) PutById(id string, request *entity.User) (response mode
 	return
 }
 
-//自定义接收参数
+//登录自定义接收参数
 type LoginRequest struct {
 	at.RequestBody
 	Receiver string `json:"receiver"`
 	Password string `json:"password"`
 }
 
+//用户登录
 func (c *userController) Login(_ struct {
 	at.PostMapping `value:"/login"`
 }, request *LoginRequest) (response model.Response, err error) {
@@ -215,6 +216,7 @@ func (c *userController) Login(_ struct {
 	return
 }
 
+//用户信息
 func (c *userController) Info(_ struct {
 	at.GetMapping `value:"/info"`
 }, ctx context.Context) (response model.Response, err error) {
@@ -242,6 +244,33 @@ func (c *userController) Info(_ struct {
 		data["userInfo"] = (*users)[0]
 	}
 
+	response.SetData(data)
+	return
+}
+
+//查询用户排行榜
+func (c *userController) Leaderboard(_ struct {
+	at.PostMapping `value:"/leaderboard"`
+}, request *struct {
+	at.RequestBody
+	Sort     string
+	Page     int
+	PageSize int
+}) (response model.Response, err error) {
+	response = new(model.BaseResponse)
+	if request.Page <= 0 {
+		request.Page = 1
+	}
+	if request.PageSize <= 0 {
+		request.PageSize = 10
+	}
+	users, pagination, err := c.userService.FindBySort(request.Sort, int64(request.Page), int64(request.PageSize))
+	if users == nil || len(*users) < 1 {
+		return response, errors.BadRequestf("用户排行榜查询失败")
+	}
+	data := make(map[string]interface{})
+	data["users"] = users
+	data["pagination"] = pagination
 	response.SetData(data)
 	return
 }
