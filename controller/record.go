@@ -122,6 +122,7 @@ func (c *recordController) Find(_ struct {
 	return response, nil
 }
 
+//记录修改，只能修改完成状态
 func (c *recordController) Modify(_ struct {
 	at.PostMapping `value:"/modify"`
 }, request *entity.Record) (response model.Response, err error) {
@@ -132,8 +133,10 @@ func (c *recordController) Modify(_ struct {
 	if hasEmpty {
 		return response, errors.BadRequestf("传输数据不完整")
 	}
+	update := make(map[string]interface{})
+	update["complete"] = true
 
-	err = c.recordService.ModifyRecord(request)
+	err = c.recordService.ModifyRecord(request.Id, update)
 	return
 }
 
@@ -260,5 +263,17 @@ func (c *recordController) EGG(_ struct {
 		return response, errors.BadRequestf("投递鸡蛋失败")
 	}
 
+	return
+}
+
+//记录删除
+func (c *recordController) Delete(_ struct {
+	at.PostMapping `value:"/delete"`
+}, request *entity.Record) (response model.Response, err error) {
+	response = new(model.BaseResponse)
+	err = c.recordService.DeleteRecord(request.Id)
+	if err != nil {
+		return response, errors.BadRequestf("删除记录失败")
+	}
 	return
 }

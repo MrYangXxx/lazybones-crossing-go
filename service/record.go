@@ -16,9 +16,10 @@ type RecordService interface {
 	AddRecord(request *entity.Record) error
 	FindByFilter(filter interface{}, page int64, pageSize int64) (records *[]entity.Record, pagination *entity.Pagination, err error)
 	Find(page int64, pageSize int64) (records *[]entity.Record, pagination *entity.Pagination, err error)
-	ModifyRecord(request *entity.Record) error
+	ModifyRecord(id string, update interface{}) error
 	IncreaseFlowerCount(recordId string) (err error)
 	IncreaseEggCount(recordId string) (err error)
+	DeleteRecord(id string) (err error)
 }
 
 type recordServiceImpl struct {
@@ -122,17 +123,15 @@ func (r *recordServiceImpl) Find(page int64, pageSize int64) (records *[]entity.
 	return
 }
 
-func (r *recordServiceImpl) ModifyRecord(request *entity.Record) error {
-	if request.Id == "" {
+func (r *recordServiceImpl) ModifyRecord(id string, update interface{}) error {
+	if id == "" {
 		return errors.New("id must not nil")
 	}
 
-	id := utils.ToMongoDBId(request.Id)
-	//id置为空,配合entity的omitempty查询时忽略空值，不为空的其他字段将更新
-	request.Id = ""
+	recordId := utils.ToMongoDBId(id)
 
 	db := r.client.Database("lazybones").Collection("records")
-	_, err := db.UpdateOne(context.Background(), bson.D{{"_id", id}}, bson.D{{"$set", request}})
+	_, err := db.UpdateOne(context.Background(), bson.D{{"_id", recordId}}, bson.D{{"$set", update}})
 	return err
 }
 
@@ -147,5 +146,17 @@ func (r *recordServiceImpl) IncreaseEggCount(recordId string) (err error) {
 	db := r.client.Database("lazybones").Collection("records")
 	filter := bson.D{{"_id", utils.ToMongoDBId(recordId)}}
 	_, err = db.UpdateOne(context.Background(), filter, bson.D{{"$inc", bson.D{{"egg", 1}}}})
+	return
+}
+
+func (r *recordServiceImpl) DeleteRecord(id string) (err error) {
+	if id == "" {
+		return errors.New("id must not nil")
+	}
+
+	recordId := utils.ToMongoDBId(id)
+
+	db := r.client.Database("lazybones").Collection("records")
+	_, err = db.DeleteOne(context.Background(), bson.D{{"_id", recordId}})
 	return
 }
