@@ -53,6 +53,7 @@ func (r *recordServiceImpl) FindByFilter(filter interface{}, page int64, pageSiz
 	findOptions := options.FindOptions{
 		Limit: &pageSize,
 		Skip:  &skip,
+		Sort:  bson.D{{"_id", -1}},
 	}
 
 	res, err := db.Find(context.Background(), filter, &findOptions)
