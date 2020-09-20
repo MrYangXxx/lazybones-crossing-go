@@ -80,18 +80,17 @@ func (r *recordServiceImpl) Find(page int64, pageSize int64) (records *[]entity.
 
 	db := r.client.Database("lazybones").Collection("records")
 	skip := (page - 1) * pageSize
-	filter := &entity.Record{}
 
 	pipeline := bson.A{
 		//多表查询
 		bson.D{{"$lookup", bson.D{
 			{"from", "users"}, {"localField", "userId"}, {"foreignField", "_id"}, {"as", "userInfo"},
 		}}},
+		//排序
+		bson.D{{"$sort", bson.D{{"_id", -1}}}},
 		//分页
 		bson.D{{"$skip", skip}},
 		bson.D{{"$limit", pageSize}},
-		//排序
-		bson.D{{"$sort", bson.D{{"_id", -1}}}},
 	}
 
 	res, err := db.Aggregate(context.Background(), pipeline)
@@ -114,7 +113,7 @@ func (r *recordServiceImpl) Find(page int64, pageSize int64) (records *[]entity.
 		returnRecord.UserName = user.UserName
 		*records = append(*records, returnRecord)
 	}
-	count, err := db.CountDocuments(context.Background(), filter)
+	count, err := db.CountDocuments(context.Background(), bson.D{})
 	pagination = &entity.Pagination{
 		Page:     int(page),
 		PageSize: int(pageSize),
