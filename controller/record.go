@@ -171,8 +171,8 @@ func (c *recordController) Flower(_ struct {
 	userRecord, err := c.userRecordService.Find(request.OwnerId, request.RecordId)
 	if err != nil || userRecord == nil {
 		userRecord = &entity.UserRecord{
-			UserId:   request.UserId,
-			RecordId: request.OwnerId,
+			UserId:   request.OwnerId,
+			RecordId: request.RecordId,
 			Egg:      0,
 			Flower:   0,
 		}
